@@ -1,0 +1,95 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r echo = T, results = 'hide', warning=FALSE}
+library(tidyverse)
+library(Seurat)
+library(SeuratWrappers)
+library(patchwork)
+```
+
+# Read Seurat File
+
+Pre filtering steps:
+
+
+
+```{r}
+tonsil_blood <- read_rds("/Users/patrickcollins/Documents/Globus/BloodTonsil_RevisedUMAP.rds")
+
+```
+
+create an empty list of plots
+
+```{r}
+
+plot_list <- list()
+```
+
+### Dimension plot
+
+```{r}
+my_levels <- c(7,4,0,6,5,1,2,3)
+levels(tonsil_blood) <- my_levels
+rm(my_levels)
+tonsil_blood %>% DimPlot(label=TRUE) -> plot_list[["DimPlot"]]
+plot_list[["DimPlot"]]
+```
+
+### Heatmap
+
+```{r fig.height=8}
+
+tonsil_blood %>% 
+  FindAllMarkers(min.pct=.25)%>%
+    group_by(cluster) %>%
+    top_n(n = 10, wt = avg_log2FC) -> top10
+
+DoHeatmap(tonsil_blood, features = top10$gene) + NoLegend() -> plot_list[["HeatMap"]]
+# cluster re-assignment occurs, which re-assigns clustering in my_levels (assuming you have 12 clusters in total)
+
+plot_list[["HeatMap"]]
+```
+
+### Antibody dotplot
+
+
+```{R}
+DotPlot(tonsil_blood, features =
+          c("CXCR6.1","CD103","CD49a","KIR2DL1.1","KIR3DL1.1","KIR2DL2.1","CD57","KLRG1.1","CD16","CD94","CD27.1","CD11b","NKP44","CD127","CD117"),assay = "ADT") + NoLegend() + coord_flip() -> plot_list[["AbDotPlot"]]
+
+plot_list[["AbDotPlot"]]
+```
+
+### Dimension plot per hashtag
+
+```{r}
+
+tonsil_blood %>% DimPlot(split.by = "HTO_maxID",ncol = 1) -> plot_list[["HashTagDimPlot"]]
+plot_list[["HashTagDimPlot"]]
+```
+
+### lotsa UMAPs
+```{r}
+tonsil_blood %>%
+  FeaturePlot(features=c("CD103","CD94","KLRG1.1","KIR3DL1.1"),
+              cols = c("lightgrey", "darkgreen"),min.cutoff = 2) -> plot_list[["UMAPs"]]
+ plot_list[["UMAPs"]]
+```
+# Velocity
+
+```{R}
+library(SeuratDisk)
+DefaultAssay(tonsil_blood) <- "RNA"
+SaveH5Seurat(tonsil_blood, filename = "/Users/patrickcollins/Documents/Globus/tonsilblood.h5Seurat")
+Convert("/Users/patrickcollins/Documents/Globus/tonsilblood.h5Seurat", dest = "h5ad")
+```
+
+
+
